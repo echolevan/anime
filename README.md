@@ -1,7 +1,7 @@
 <h1 align="center">
   <a href="https://animejs.com"><img src="/documentation/assets/img/animejs-v3-header-animation.gif" width="250"/></a>
   <br>
-  anime.js
+  hsl-anime.js
 </h1>
 
 <h4 align="center">JavaScript animation engine | <a href="https://animejs.com" target="_blank">animejs.com</a></h4>
