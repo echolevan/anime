@@ -1,4 +1,44 @@
 // Defaults
+function _toConsumableArray(arr) {
+  if (Array.isArray(arr)) {
+    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) {
+      arr2[i] = arr[i];
+    }
+    return arr2;
+  } else {
+    return Array.from(arr);
+  }
+}
+
+function normalizePercentKeyframes(keyframes, duration) {
+  //Convert CSS style keyframe object into array to be flattened
+  if (Array.isArray(keyframes) === false) {
+    var keys = Object.keys(keyframes);
+    if (keys.length > 0) {
+      var splitKeysMap = keys.reduce(function (accumulator, key, i, array) {
+        key.split(',').forEach(function (k, i) {
+          var mk = parseFloat(k) / 100.0;
+          accumulator.has(mk) ? Object.assign(accumulator.get(mk), keyframes[key]) :
+            accumulator.set(mk, keyframes[key]);
+        });
+        return accumulator;
+      }, new Map());
+
+      var splitKeys = [].concat(_toConsumableArray(splitKeysMap.keys())).sort();
+
+      keyframes = splitKeys.map(function (value, i) {
+        var d = duration * value;
+        if (i > 0) {
+          d -= duration * splitKeys[i - 1];
+        }
+        return Object.assign({}, {
+          duration: d
+        }, splitKeysMap.get(value));
+      });
+    }
+  }
+  return keyframes;
+}
 
 const defaultInstanceSettings = {
   update: null,
@@ -228,7 +268,7 @@ const penner = (() => {
       const a = minMax(amplitude, 1, 10);
       const p = minMax(period, .1, 2);
       return t => {
-        return (t === 0 || t === 1) ? t : 
+        return (t === 0 || t === 1) ? t :
           -a * Math.pow(2, 10 * (t - 1)) * Math.sin((((t - 1) - (p / (Math.PI * 2) * Math.asin(1 / a))) * (Math.PI * 2)) / p);
       }
     }
@@ -244,7 +284,7 @@ const penner = (() => {
     const easeIn = functionEasings[name];
     eases['easeIn' + name] = easeIn;
     eases['easeOut' + name] = (a, b) => t => 1 - easeIn(a, b)(1 - t);
-    eases['easeInOut' + name] = (a, b) => t => t < 0.5 ? easeIn(a, b)(t * 2) / 2 : 
+    eases['easeInOut' + name] = (a, b) => t => t < 0.5 ? easeIn(a, b)(t * 2) / 2 :
       1 - easeIn(a, b)(t * -2 + 2) / 2;
   });
 
@@ -501,7 +541,7 @@ function getRectLength(el) {
 
 function getLineLength(el) {
   return getDistance(
-    {x: getAttribute(el, 'x1'), y: getAttribute(el, 'y1')}, 
+    {x: getAttribute(el, 'x1'), y: getAttribute(el, 'y1')},
     {x: getAttribute(el, 'x2'), y: getAttribute(el, 'y2')}
   );
 }
@@ -680,8 +720,11 @@ function flattenKeyframes(keyframes) {
 
 function getProperties(tweenSettings, params) {
   const properties = [];
-  const keyframes = params.keyframes;
-  if (keyframes) params = mergeObjects(flattenKeyframes(keyframes), params);;
+  var keyframes = params.keyframes;
+  if (keyframes) {
+    keyframes = normalizePercentKeyframes(keyframes, params.duration || tweenSettings.duration);
+    params = mergeObjects(flattenKeyframes(keyframes), params);
+  }
   for (let p in params) {
     if (is.key(p)) {
       properties.push({
@@ -838,7 +881,7 @@ let pausedInstances = [];
 let raf;
 
 const engine = (() => {
-  function play() { 
+  function play() {
     raf = requestAnimationFrame(step);
   }
   function step(t) {
@@ -1210,13 +1253,12 @@ function stagger(val, params = {}) {
 
 function timeline(params = {}) {
   let tl = anime(params);
+  tl.pause();
   tl.duration = 0;
   tl.add = function(instanceParams, timelineOffset) {
-    const tlIndex = activeInstances.indexOf(tl);
-    const children = tl.children;
-    if (tlIndex > -1) activeInstances.splice(tlIndex, 1);
-    function passThrough(ins) { ins.passThrough = true; };
-    for (let i = 0; i < children.length; i++) passThrough(children[i]);
+    const currentTime = tl.currentTime;
+    function passThrough(ins) { ins.began = true;  ins.completed = true; };
+    tl.children.forEach(passThrough);
     let insParams = mergeObjects(instanceParams, replaceObjectProps(defaultTweenSettings, params));
     insParams.targets = insParams.targets || params.targets;
     const tlDuration = tl.duration;
@@ -1228,16 +1270,14 @@ function timeline(params = {}) {
     const ins = anime(insParams);
     passThrough(ins);
     const totalDuration = ins.duration + insParams.timelineOffset;
-    children.push(ins);
-    const timings = getInstanceTimings(children, params);
-    tl.delay = timings.delay;
-    tl.endDelay = timings.endDelay;
-    tl.duration = timings.duration;
-    tl.seek(0);
+    if (is.fnc(tl.delay)) tl.delay = ins.delay;
+    if (is.fnc(tlDuration) || totalDuration > tlDuration) tl.duration = totalDuration;
+    tl.children.push(ins);
     tl.reset();
+    tl.seek(currentTime);
     if (tl.autoplay) tl.play();
     return tl;
-  }
+  };
   return tl;
 }
 

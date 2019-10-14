@@ -1,8 +1,8 @@
 {
-  "name": "animejs",
-  "version": "3.1.0",
+  "name": "hsl-animejs",
+  "version": "3.1.1",
   "homepage": "http://animejs.com",
-  "repository": "juliangarnier/anime",
+  "repository": "echolevan/anime",
   "description": "JavaScript animation engine",
   "umd:main": "lib/anime.min.js",
   "module": "lib/anime.es.js",
